@@ -2,93 +2,26 @@ name: IBM Cloud Foundry Auto Push
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches: master
+  watch:
+    types: started
   schedule:
-    - cron: '24 22 * * 6'
+    - cron: 25 22 * * 6
 
 jobs:
-  ibm-cf-autoPush:
+  IBM-Cloud-CF-APP-Restart:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
 
-    - name: download CLI
+    - name: Install CF CLI
       run: |
-        curl -L "https://clis.cloud.ibm.com/download/bluemix-cli/latest/linux64/archive" | tar zx
-        sudo mv ./IBM_Cloud_CLI/ibmcloud /usr/local/bin/
-
-    - name: make Files
-      run: |
-        mkdir Godeps 22fly && cd 22fly
-        
-        wget -q https://github.com/v2ray/v2ray-core/releases/latest/download/v2ray-linux-64.zip
-        unzip -qo v2ray-linux-64.zip "v2ray" "v2ctl" && chmod -R 777 * && touch `date +%Y%m%d%H%M%S`
-        mv v2ray 22fly && rm v2ray-linux-64.zip
-        
-        cat > config.json << EOF
-        {
-          "inbounds": [
-            {
-              "port": 8080,
-              "protocol": "vmess",
-              "settings": {
-                "clients": [
-                  {
-                    "id": "${{ secrets.UUID }}",
-                    "alterId": 64
-                  }
-                ]
-              },
-              "streamSettings": {
-                "network":"ws"
-              }
-            }
-          ],
-          "outbounds": [
-            {
-              "protocol": "freedom",
-              "settings": {}
-            }
-          ]
-        }
-        EOF
-        
-        cd .. && cd Godeps
-        
-        cat > Godeps.json << EOF
-        {
-          "ImportPath": "main",
-          "GoVersion": "go 1.13",
-          "Deps": []
-        }
-        EOF
-        
-        cd ..
-        
-        echo "web: ./22fly/22fly" > Procfile
-        
-        cat > main.go << EOF
-        package main
-        func main() {
-        }
-        EOF
-        
-        cat > manifest.yml << EOF
-        applications:
-          - path: .
-            name: ${{ secrets.APP_NAME }}
-            random-route: true
-            memory: 256M
-        EOF
-
-    - name: auto Push
-      run: |
-        ibmcloud cf install -v 6.51.0
-        
-        ibmcloud login -u ${{ secrets.ACCOUNT }} -p ${{ secrets.PWD }} -r ${{ secrets.REGION }}
-        
-        ibmcloud target --cf
-        ibmcloud cf push
+        curl -L "https://packages.cloudfoundry.org/stable?release=linux64-binary&source=github&version=v6" | tar -zx
+        sudo mv cf /usr/local/bin
+      
+    - name: Login CF
+      run: cf l -a https://api.${{ secrets.RGN }}.cf.cloud.ibm.com login -u ${{ secrets.MAIL }} -p ${{ secrets.PWD }}
+      
+    - name: Restart CF APP
+      run: cf rs ${{ secrets.CFNAME }}
